@@ -268,7 +268,7 @@ textarea.inp{resize:vertical;min-height:64px}
       <div class="sr" id="brief-sr" aria-live="polite"></div>
       <div class="flapctl">
         <button class="fbtn" type="button" id="flap-replay">FLIP BOARD</button>
-        <button class="fbtn" type="button" id="flap-refresh" hidden>REFRESH REVIEW</button>
+        <button class="fbtn" type="button" id="flap-refresh">REFRESH REVIEW</button>
         <span class="fstat" id="flap-status" role="status"></span>
       </div>
     </div>
@@ -569,41 +569,74 @@ function replayBoard(){
   F.active.clear(); renderBrief();
 }
 const isoOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-async function refreshReview(){
-  if(!S.sample || !S.db) return;
-  const btn=$("#flap-refresh"), st=$("#flap-status");
-  btn.disabled=true; st.textContent="REVIEWING… (FIRST TIME: ALLOW CLAUDE)";
-  const now=new Date(), today=isoOf(now); const y=new Date(now); y.setDate(y.getDate()-1); const yISO=isoOf(y);
-  const open=[...S.tasks.values()].filter(t=>!t.done).map(t=>({title:t.title, type:typeOf(t.type).name, bay:t.bay||"next", order:t.order??0, due:t.due||null,
-    steps:(t.steps||[]).length?`${t.steps.filter(s=>s.done).length}/${t.steps.length} done`:null, updatedAt:t.updatedAt||t.createdAt||null}));
-  const landedY=[...S.tasks.values()].filter(t=>t.done && t.doneAt && isoOf(new Date(t.doneAt))===yISO).length;
-  const unfiled=S.thoughts.filter(x=>!x.filed).length;
-  const prompt=`You are reviewing a person's personal task board. Today is ${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()]} ${today}, local time ${pad(now.getHours())}${pad(now.getMinutes())}.
-Open tasks (JSON): ${JSON.stringify(open).slice(0,60000)}
-Bays: now = high, next = medium, later = low priority; lower "order" = higher in its bay. Tasks landed (completed) yesterday: ${landedY}. Unfiled thoughts: ${unfiled}.
-Pick "Today's 3": overdue or due today/tomorrow first, then NOW bay by order, then items due within 3 days, then stuck items (updatedAt older than 14 days in NOW/NEXT). Each gets a short "why" (max 40 chars, e.g. "Due today", "Overdue 2 days", "Top of NOW").
-Flags: short uppercase chips, max 5, each max 28 chars, e.g. "2 OVERDUE", "3 DUE <=3 DAYS", "NOW BAY HAS 9 - TRIM", "4 STALE >14D", "2 UNFILED THOUGHTS", "LANDED 5 YESTERDAY". Only flags that are true. End with "NEXT REVIEW 0645 ET".
-Headline: one plain sentence, max 70 chars, peer-to-peer tone, no fluff.
-Reply with ONLY JSON: {"headline": "...", "top": [{"title": "<exact task title>", "why": "..."}], "flags": ["..."]}. If there are no open tasks, top is [] and the headline says the board is clear.`;
-  try{
-    const out=await S.sample.json(prompt, {modelTier:"default", cache:false});
-    const doc={date:today, generatedAt:new Date().toISOString(), headline:String(out?.headline||"Board reviewed").slice(0,140),
-      top:(Array.isArray(out?.top)?out.top:[]).slice(0,3).map(x=>({title:String(x?.title||"").slice(0,120), why:String(x?.why||"").slice(0,80)})).filter(x=>x.title),
-      flags:(Array.isArray(out?.flags)?out.flags:[]).slice(0,6).map(f=>String(f).slice(0,40))};
-    S.brief=doc; renderBrief(); st.textContent="UPDATED";
-    write("meta/brief", ()=>S.db.doc("meta/brief").set(doc));
-  }catch(e){
-    const c=e&&e.code;
-    if(["not_granted","sampling_disabled","capability_disabled","capability_removed","not_declared"].includes(c)){ st.textContent="CLAUDE ISN'T ALLOWED ON THIS PAGE"; btn.hidden=true; }
-    else if(c==="rate_limited") st.textContent="USAGE LIMIT. TRY LATER.";
-    else if(c==="invalid_json") st.textContent="GARBLED ANSWER. TRY AGAIN.";
-    else st.textContent="COULDN'T REACH CLAUDE. TRY AGAIN.";
-  }finally{
-    btn.disabled=false; setTimeout(()=>{ if(st.textContent==="UPDATED") st.textContent=""; }, 4000);
+/* On-device daily review: same rules the old 0645 Claude routine used, run locally. No network, no cost, works offline. */
+const dayNum = iso => { const d=parseISO(iso); return d ? Math.round(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5) : null; };
+function buildReview(now=new Date()){
+  const today=isoOf(now), tn=dayNum(today), y=new Date(now); y.setDate(y.getDate()-1); const yISO=isoOf(y);
+  const all=[...S.tasks.values()], open=all.filter(t=>!t.done);
+  const info=t=>{ const dn=t.due?dayNum(t.due):null; const upd=Date.parse(t.updatedAt||t.createdAt||"");
+    return {t, d:dn==null?null:dn-tn, ord:t.order??0, stale:isFinite(upd)&&(now.getTime()-upd)>14*864e5&&(t.bay==="now"||t.bay==="next")}; };
+  const rows=open.map(info), bayRank={now:0,next:1,later:2};
+  const byOrder=(a,b)=>(bayRank[a.t.bay||"next"]-bayRank[b.t.bay||"next"])||(a.ord-b.ord);
+  const tiers=[
+    [r=>r.d!=null&&r.d<0, (a,b)=>a.d-b.d, r=>r.d===-1?"Overdue 1 day":`Overdue ${-r.d} days`],
+    [r=>r.d===0||r.d===1, (a,b)=>a.d-b.d||byOrder(a,b), r=>r.d===0?"Due today":"Due tomorrow"],
+    [r=>(r.t.bay||"next")==="now", byOrder, ()=>"Top of NOW"],
+    [r=>r.d!=null&&r.d>=2&&r.d<=3, (a,b)=>a.d-b.d, r=>`Due in ${r.d} days`],
+    [r=>r.stale, byOrder, ()=>"Stuck over 14 days"]
+  ];
+  const top=[], used=new Set();
+  for(const [test,cmp,why] of tiers){
+    for(const r of rows.filter(test).sort(cmp)){
+      if(top.length>=3) break; if(used.has(r.t.id)) continue;
+      used.add(r.t.id); top.push({title:String(r.t.title||"").slice(0,120), why:why(r)});
+    }
   }
+  if(top.length>=1 && top[0].why==="Top of NOW") top[0].why="Top of NOW";
+  const nOver=rows.filter(r=>r.d!=null&&r.d<0).length;
+  const nSoon=rows.filter(r=>r.d!=null&&r.d>=0&&r.d<=3).length;
+  const nNow=open.filter(t=>(t.bay||"next")==="now").length;
+  const nStale=rows.filter(r=>r.stale).length;
+  const nUnf=S.thoughts.filter(x=>!x.filed).length;
+  const nLand=all.filter(t=>t.done&&t.doneAt&&isoOf(new Date(t.doneAt))===yISO).length;
+  const flags=[];
+  if(nOver) flags.push(`${nOver} OVERDUE`);
+  if(nSoon) flags.push(`${nSoon} DUE <=3 DAYS`);
+  if(nNow>7) flags.push(`NOW BAY HAS ${nNow} - TRIM`);
+  if(nStale) flags.push(`${nStale} STALE >14D`);
+  if(nUnf) flags.push(`${nUnf} UNFILED THOUGHT${nUnf>1?"S":""}`);
+  if(nLand) flags.push(`LANDED ${nLand} YESTERDAY`);
+  flags.splice(5); flags.push("AUTO REVIEW DAILY");
+  let headline;
+  if(!open.length) headline="Board is clear. Nothing open.";
+  else if(nOver) headline=`${nOver} overdue. Start with ${top[0].title}.`;
+  else if(nSoon) headline=`${nSoon} due within 3 days. Start with ${top[0].title}.`;
+  else headline=`Nothing due for 3 days. ${nNow} in NOW, work the top.`;
+  return {date:today, generatedAt:now.toISOString(), headline:headline.slice(0,140), top, flags:flags.map(f=>f.slice(0,40))};
 }
+function refreshReview(auto){
+  if(!S.db || !S.ready) return;
+  const st=$("#flap-status");
+  const doc=buildReview();
+  S.brief=doc; renderBrief();
+  write("meta/brief", ()=>S.db.doc("meta/brief").set(doc));
+  if(auto!==true){ st.textContent="UPDATED"; setTimeout(()=>{ if(st.textContent==="UPDATED") st.textContent=""; }, 3000); }
+}
+/* run once per calendar day, on open and whenever the app comes back to the foreground */
+let arTimer=0;
+function autoReview(){   /* waits for the data to settle, so a first sync that streams in 30 strips can't produce a review of 3 */
+  clearTimeout(arTimer);
+  arTimer=setTimeout(()=>{
+    if(!S.db || !S.ready || !S.briefLoaded || !S.tasks.size) return;
+    if(S.brief && S.brief.date===todayISO()) return;
+    refreshReview(true);
+  }, 2500);
+}
+window.__TL={S,buildReview,todayISO};   /* test hook */
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible") autoReview(); });
+setInterval(autoReview, 5*60*1000);
 $("#flap-replay").addEventListener("click", replayBoard);
-$("#flap-refresh").addEventListener("click", refreshReview);
+$("#flap-refresh").addEventListener("click", ()=>refreshReview());
 if(window.ResizeObserver){ let rt; new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ if(measureCols()!==F.cols) renderBrief(); },120); }).observe($("#flapboard")); }
 function renderThoughts(){
   const list=[...S.thoughts].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
@@ -947,7 +980,7 @@ $("#clear-landed").addEventListener("click", e=>{
 });
 
 /* ============ boot ============ */
-function applySnapshot(){ S.ready=true; renderAll(); }
+function applySnapshot(){ S.ready=true; renderAll(); autoReview(); }
 async function boot(){
   S.filter=store.get("cl.filter")||"all";
   const dr=store.get("cl.draft"); if(dr) $("#th-text").value=dr;
@@ -971,7 +1004,7 @@ async function boot(){
   db.doc("meta/settings").onSnapshot(snap=>{
     const v=snap.exists?snap.data():null; if(v && Array.isArray(v.types) && v.types.length){ S.types=clone(v.types); renderAll(); }
   }, onErr);
-  db.doc("meta/brief").onSnapshot(snap=>{ S.brief=snap.exists?clone(snap.data()):null; renderBrief(); }, onErr);
+  db.doc("meta/brief").onSnapshot(snap=>{ S.briefLoaded=true; S.brief=snap.exists?clone(snap.data()):null; renderBrief(); autoReview(); }, onErr);
   window.Sync.onStatus(paintSync);
   window.Sync.start(db._x);
 }

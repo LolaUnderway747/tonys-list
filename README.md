@@ -3,7 +3,9 @@
 Flight-strip task board that opens with no signal, keeps every edit on the device, and syncs through Supabase when you have a connection.
 Same look as the claude.ai version: NOW / NEXT / LATER bays, types, steps, phones, places, Thoughts, Landed, split-flap board.
 
-**Not in this version:** "Turn into strips" and REFRESH REVIEW (they need Claude and an API key), and the 0645 daily review. The board shows the last review you imported. Reminders import is a separate problem.
+**Daily review:** the board builds its own "Today's 3" review on the device, once per day when you open the app (and on the REFRESH REVIEW button). Same rules as the old 0645 routine: overdue first, due today or tomorrow, top of NOW, due within 3 days, stuck over 14 days. No network, no cost, works offline, and it syncs to your other devices.
+
+**Not in this version:** "Turn into strips" (needs Claude and an API key). Reminders import is a separate problem.
 
 ## One-time setup (about 30 minutes)
 
