@@ -1,0 +1,12 @@
+{
+  "name": "tonys-list",
+  "private": true,
+  "type": "module",
+  "scripts": { "vendor": "node scripts/vendor.mjs" },
+  "devDependencies": {
+    "@fontsource/barlow-semi-condensed": "^5.0.0",
+    "@fontsource/bungee": "^5.0.0",
+    "@fontsource/share-tech-mono": "^5.0.0",
+    "sortablejs": "1.15.2"
+  }
+}

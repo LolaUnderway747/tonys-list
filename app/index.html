@@ -1,0 +1,1057 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tony's List</title>
+<meta name="theme-color" content="#28312C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tony's List">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="fonts.css">
+<style>html{-webkit-text-size-adjust:100%}body{margin:0;padding:0}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+</head><body>
+<style>
+/* Layout: an ATC flight-strip board — strips sit in three priority bays (NOW / NEXT / LATER), a CRT readout carries the daily review. */
+:root{
+  --bg:#D2D6CD; --bg2:#C3C8BE; --fg:#1D2420; --muted:#56615A;
+  --line:#A3AAA0; --panel:#28312C; --panel-fg:#E6E2D3; --crt:#FFB13D; --crt-dim:#B9822F;
+  --paper:#F4F0E3; --paper2:#E9E4D3; --ink:#1C221E; --ink-muted:#5D6660;
+  --now:#D2412B; --next:#E39A2A; --later:#2F8A86;
+  --ok:#3E8E4E; --warn:#D9861C; --bad:#C2311F;
+  --focus:#1F6FD1;
+  --board:#0E100F; --flap:#1E2120; --flap-ink:#F1EDDF; --flap-amber:#FFB13D; --flap-green:#8FD39A;
+  --shadow:0 1px 0 rgba(0,0,0,.18), 0 2px 6px rgba(20,30,25,.14);
+  --f-display:"Bungee", "Arial Black", Impact, system-ui, sans-serif;
+  --f-body:"Barlow Semi Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --f-mono:"Share Tech Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141917; --bg2:#1B211E; --fg:#E4E1D4; --muted:#929B94; --line:#313A35;
+  --panel:#0C100E; --panel-fg:#E4E1D4; --crt:#FFB13D; --crt-dim:#A9762A;
+  --paper:#DAD5C4; --paper2:#CBC5B2; --ink:#1A201C; --ink-muted:#555E58;
+  --now:#E0533B; --next:#EBA637; --later:#3FA19C;
+  --ok:#5DB06B; --warn:#E89B35; --bad:#E2523E; --focus:#6AA8FF;
+  --shadow:0 1px 0 rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.45);
+  color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#141917; --bg2:#1B211E; --fg:#E4E1D4; --muted:#929B94; --line:#313A35;
+  --panel:#0C100E; --panel-fg:#E4E1D4; --crt:#FFB13D; --crt-dim:#A9762A;
+  --paper:#DAD5C4; --paper2:#CBC5B2; --ink:#1A201C; --ink-muted:#555E58;
+  --now:#E0533B; --next:#EBA637; --later:#3FA19C;
+  --ok:#5DB06B; --warn:#E89B35; --bad:#E2523E; --focus:#6AA8FF;
+  --shadow:0 1px 0 rgba(0,0,0,.5), 0 3px 8px rgba(0,0,0,.45);
+  color-scheme:dark;}
+
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.35;
+  background-image:repeating-linear-gradient(0deg,transparent 0 23px,color-mix(in srgb,var(--line) 35%,transparent) 23px 24px);}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1240px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+
+/* ---------- masthead ---------- */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);color:var(--panel-fg);
+  border-bottom:4px solid var(--crt);box-shadow:0 2px 0 rgba(0,0,0,.25)}
+.top .wrap{padding-block:10px 0;display:flex;flex-direction:column;gap:8px}
+.mast{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mast h1{margin:0;font-family:var(--f-mono);font-weight:400;font-size:clamp(24px,4.6vw,34px);letter-spacing:.16em;line-height:1;
+  color:var(--crt);text-shadow:0 0 6px color-mix(in srgb,var(--crt) 45%,transparent)}
+.mast h1 span{color:var(--panel-fg)}
+.readout{font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;color:var(--crt-dim);white-space:nowrap}
+.readout b{color:var(--crt);font-weight:400}
+.tabs{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.tab{border:0;background:transparent;color:var(--panel-fg);opacity:.7;font-family:var(--f-mono);font-size:15px;letter-spacing:.12em;
+  padding:9px 14px 8px;border-radius:6px 6px 0 0;white-space:nowrap}
+.tab[aria-selected="true"]{opacity:1;background:var(--crt);color:#1A1408}
+.tab .n{font-family:var(--f-mono);font-size:12px;margin-left:6px;opacity:.8}
+
+.sync{font-family:var(--f-mono);font-size:12px;letter-spacing:.05em;padding:6px 10px;border-radius:4px;margin-top:12px;
+  background:color-mix(in srgb,var(--warn) 18%,var(--bg));border:1px solid var(--warn);color:var(--fg)}
+
+/* ---------- CRT brief ---------- */
+.crt{margin-top:16px;background:var(--panel);color:var(--crt);border-radius:10px;padding:14px 16px 16px;position:relative;overflow:hidden;
+  border:2px solid color-mix(in srgb,var(--crt) 30%,var(--panel));font-family:var(--f-mono);box-shadow:inset 0 0 40px rgba(0,0,0,.55)}
+.crt::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
+.crt .hdr{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:13px;letter-spacing:.1em;color:var(--crt-dim)}
+.crt h2{margin:6px 0 10px;font-family:var(--f-mono);font-weight:400;font-size:clamp(18px,3.4vw,24px);text-shadow:0 0 6px color-mix(in srgb,var(--crt) 55%,transparent);text-wrap:balance}
+.crt ol{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.crt li{display:grid;grid-template-columns:28px 1fr;gap:6px;font-size:16px}
+.crt li .k{color:var(--crt-dim)}
+.crt li small{display:block;color:var(--crt-dim);font-size:13px}
+.crt .flags{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.crt .flag{font-size:12px;letter-spacing:.06em;border:1px solid var(--crt-dim);padding:3px 7px;border-radius:3px}
+.crt.stale h2{opacity:.75}
+@media (prefers-reduced-motion:no-preference){.crt.boot h2{animation:flick .9s steps(2,end) 1}}
+@keyframes flick{0%{opacity:.1}30%{opacity:.9}40%{opacity:.3}60%{opacity:1}}
+
+/* ---------- split-flap (Solari) board ---------- */
+.crt.board-flap{background:var(--board);border-color:#2B2F2D;box-shadow:inset 0 0 30px rgba(0,0,0,.6)}
+.crt.board-flap::after{display:none}
+.flapboard{--cw:15px;--ch:24px;--fgap:2px;margin-top:10px;display:grid;gap:3px;width:100%;overflow:hidden}
+@media (min-width:700px){.flapboard{--cw:20px;--ch:31px}}
+.frow{display:flex;gap:var(--fgap)}
+.frow.first{margin-top:9px}
+.fc{position:relative;flex:0 0 var(--cw);width:var(--cw);height:var(--ch);perspective:200px;
+  font-family:var(--f-body);font-weight:600;font-size:calc(var(--ch) * .72);color:var(--flap-ink)}
+.fc .h{position:absolute;left:0;right:0;height:50%;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.fc .u{top:0;border-radius:2px 2px 0 0;background:linear-gradient(#272B29,#1E2120)}
+.fc .l{bottom:0;border-radius:0 0 2px 2px;background:linear-gradient(#191C1B,#232725)}
+.fc b{display:block;height:var(--ch);line-height:var(--ch);text-align:center;font-weight:inherit}
+.fc .l b{margin-top:calc(var(--ch) / -2)}
+.fc .fu{transform-origin:50% 100%;transform:rotateX(-90deg);z-index:2}
+.fc .fl{transform-origin:50% 0;transform:rotateX(90deg);z-index:2}
+.fc::after{content:"";position:absolute;left:0;right:0;top:calc(50% - .5px);height:1px;background:rgba(0,0,0,.8);z-index:3}
+.frow.rm .fc{color:var(--flap-amber)}
+.frow.fl .fc{color:var(--flap-green)}
+.crt.stale .flapboard{opacity:.72}
+.flapctl{margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fbtn{border:1.5px solid var(--flap-amber);background:transparent;color:var(--flap-amber);font-family:var(--f-mono);font-size:13px;letter-spacing:.1em;padding:0 14px;min-height:40px;border-radius:4px}
+.fbtn:hover{background:color-mix(in srgb,var(--flap-amber) 15%,transparent)}
+.fbtn:disabled{opacity:.45;cursor:default}
+.fstat{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--flap-amber);opacity:.8}
+
+/* ---------- quick add ---------- */
+.add{margin-top:16px;display:grid;grid-template-columns:1fr auto auto auto;gap:8px;align-items:stretch}
+.add input[type=text]{min-width:0;border:2px solid var(--panel);background:var(--paper);color:var(--ink);border-radius:6px;padding:11px 12px;font-size:17px}
+.add select,.sel{border:2px solid var(--panel);background:var(--paper);color:var(--ink);border-radius:6px;padding:0 8px;font-family:var(--f-mono);font-size:14px;min-height:44px}
+.btn{border:2px solid var(--panel);background:var(--panel);color:var(--panel-fg);border-radius:6px;padding:0 16px;min-height:44px;font-family:var(--f-display);font-size:14px;letter-spacing:.05em}
+.btn.alt{background:transparent;color:var(--fg);border-color:var(--line)}
+.btn.amber{background:var(--crt);border-color:var(--crt);color:#1A1408}
+.btn.danger{background:transparent;border-color:var(--bad);color:var(--bad)}
+.btn.danger.armed{background:var(--bad);color:#fff}
+.btn:disabled{opacity:.45;cursor:default}
+@media (max-width:620px){.add{grid-template-columns:1fr 1fr}.add input[type=text]{grid-column:1/-1}.add .btn{grid-column:1/-1}}
+.hint{font-size:13px;color:var(--muted);margin:6px 2px 0}
+
+/* ---------- filter chips ---------- */
+.filters{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--bg2);color:var(--fg);border-radius:999px;padding:5px 11px 4px;font-family:var(--f-mono);font-size:13px;letter-spacing:.04em;display:inline-flex;gap:6px;align-items:center}
+.chip i{width:10px;height:10px;border-radius:2px;background:var(--c,#888);display:inline-block}
+.chip[aria-pressed="true"]{background:var(--panel);color:var(--panel-fg);border-color:var(--panel)}
+.chip.ghost{border-style:dashed;background:transparent}
+
+/* ---------- bays ---------- */
+.board{margin-top:16px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:980px){.board{grid-template-columns:1fr}}
+.bay{background:var(--bg2);border:2px solid var(--panel);border-radius:8px;overflow:hidden;min-width:0}
+.bay>header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--bc);color:#fff}
+.bay>header h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:20px;letter-spacing:.06em;text-shadow:1px 1px 0 rgba(0,0,0,.25)}
+.bay>header .sub{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;opacity:.92}
+.bay[data-bay=next]>header{color:#1D1405}
+.rack{list-style:none;margin:0;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:72px}
+.rack:empty::before{content:attr(data-empty);display:block;padding:16px 8px;text-align:center;font-family:var(--f-mono);font-size:13px;color:var(--muted);border:1.5px dashed var(--line);border-radius:6px}
+
+/* ---------- strip ---------- */
+.strip{display:grid;grid-template-columns:30px minmax(0,1fr) auto;background:var(--paper);color:var(--ink);border-radius:4px;box-shadow:var(--shadow);
+  border:1px solid color-mix(in srgb,var(--ink) 18%,transparent);position:relative;min-height:62px}
+.strip::after{content:"";position:absolute;left:30px;top:0;bottom:0;border-left:1px solid color-mix(in srgb,var(--ink) 16%,transparent)}
+@media (prefers-reduced-motion:no-preference){.strip.new{animation:slide .35s ease-out}}
+@keyframes slide{from{transform:translateX(-14px);opacity:0}to{transform:none;opacity:1}}
+.grip{background:var(--c);color:#fff;border-radius:3px 0 0 3px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.grip .code{font-family:var(--f-mono);font-size:13px;letter-spacing:.04em;text-shadow:0 1px 0 rgba(0,0,0,.35);writing-mode:vertical-rl;transform:rotate(180deg)}
+.grip svg{opacity:.85}
+.sbody{border:0;background:transparent;text-align:left;padding:8px 10px;min-width:0;color:inherit;display:flex;flex-direction:column;gap:5px;justify-content:center}
+.ttl{font-weight:600;font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+.tyl{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-muted)}
+.tyl i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.meta{display:flex;flex-wrap:wrap;gap:5px 10px;font-family:var(--f-mono);font-size:12.5px;color:var(--ink-muted);align-items:center}
+.meta .m{display:inline-flex;gap:4px;align-items:center;min-width:0;max-width:100%}
+.meta .m span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:22ch}
+.stamp{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;padding:1px 6px;border:1.5px solid currentColor;border-radius:3px;transform:rotate(-2deg);display:inline-block}
+.stamp.over{color:var(--bad)} .stamp.today{color:var(--warn)} .stamp.soon{color:#8A6A12} .stamp.later{color:var(--ink-muted)}
+.sacts{display:flex;flex-direction:column;border-left:1px dashed color-mix(in srgb,var(--ink) 22%,transparent)}
+.pri{flex:1;border:0;background:transparent;font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;padding:0 10px;color:var(--pc);font-weight:700;min-width:58px}
+.land{flex:1;border:0;border-top:1px dashed color-mix(in srgb,var(--ink) 22%,transparent);background:transparent;color:var(--ok);display:flex;align-items:center;justify-content:center;min-height:30px}
+.land:hover,.pri:hover{background:var(--paper2)}
+.sortable-ghost{opacity:.35}
+.sortable-chosen .grip{cursor:grabbing}
+.sortable-drag{transform:rotate(1deg)}
+
+/* ---------- panels: thoughts / landed ---------- */
+.panel{margin-top:16px}
+.compose{background:var(--paper);color:var(--ink);border:2px solid var(--panel);border-radius:8px;padding:12px;display:grid;gap:10px}
+.compose label{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;color:var(--ink-muted)}
+.compose textarea{width:100%;min-height:140px;resize:vertical;border:1.5px solid color-mix(in srgb,var(--ink) 25%,transparent);background:#fffdf6;color:var(--ink);border-radius:6px;padding:10px;font-size:17px;line-height:1.45;
+  background-image:repeating-linear-gradient(0deg,transparent 0 25px,rgba(60,90,140,.12) 25px 26px);background-attachment:local}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row.end{justify-content:flex-end}
+.log{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
+.entry{background:var(--paper);color:var(--ink);border-radius:6px;box-shadow:var(--shadow);padding:10px 12px;display:grid;gap:8px;border-left:6px solid var(--crt)}
+.entry.filed{border-left-color:var(--line);opacity:.82}
+.entry .when{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;color:var(--ink-muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.entry .txt{white-space:pre-wrap;overflow-wrap:anywhere;font-size:16.5px}
+.entry .row .btn{min-height:36px;font-size:12px;padding:0 12px}
+.proposals{display:grid;gap:6px;border-top:1px dashed color-mix(in srgb,var(--ink) 25%,transparent);padding-top:8px}
+.prop{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;align-items:start}
+.prop input[type=text]{width:100%;border:1px solid color-mix(in srgb,var(--ink) 25%,transparent);border-radius:4px;padding:6px 8px;background:#fffdf6;color:var(--ink)}
+.prop .sel{min-height:34px;font-size:12px;border-width:1px}
+.prop .pmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;font-family:var(--f-mono);font-size:12px;color:var(--ink-muted)}
+.status{font-family:var(--f-mono);font-size:13px;color:var(--ink-muted)}
+.landed .entry{border-left-color:var(--ok)}
+.landed .ttl{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--ink) 40%,transparent)}
+.empty{font-family:var(--f-mono);font-size:14px;color:var(--muted);padding:24px 8px;text-align:center;border:1.5px dashed var(--line);border-radius:8px;margin-top:14px}
+
+/* ---------- sheet (editor / types) ---------- */
+.scrim{position:fixed;inset:0;background:rgba(8,12,10,.55);z-index:20;display:flex;align-items:flex-end;justify-content:center;
+  padding:max(12px,env(safe-area-inset-top,0px)) max(0px,env(safe-area-inset-right,0px)) 0 max(0px,env(safe-area-inset-left,0px))}
+@media (min-width:700px){.scrim{align-items:center;padding:24px}}
+.sheet{background:var(--paper);color:var(--ink);width:100%;max-width:640px;max-height:100%;overflow:auto;border-radius:12px 12px 0 0;border-top:6px solid var(--sc,var(--crt));
+  padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));display:grid;gap:12px}
+@media (min-width:700px){.sheet{border-radius:10px;max-height:calc(100vh - 48px)}}
+.sheet h4{margin:0;font-family:var(--f-display);font-weight:400;font-size:18px;letter-spacing:.05em;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.x{border:0;background:transparent;font-size:26px;line-height:1;color:var(--ink-muted);padding:4px 8px}
+.fld{display:grid;gap:4px}
+.fld>label,.lbl{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;color:var(--ink-muted);text-transform:uppercase}
+.inp{width:100%;min-width:0;border:1.5px solid color-mix(in srgb,var(--ink) 28%,transparent);background:#fffdf6;color:var(--ink);border-radius:6px;padding:9px 10px;font-size:16px}
+textarea.inp{resize:vertical;min-height:64px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:520px){.grid2{grid-template-columns:1fr}}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1.5px solid color-mix(in srgb,var(--ink) 28%,transparent);border-radius:6px;overflow:hidden}
+.seg button{border:0;background:#fffdf6;padding:9px 4px;font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;color:var(--ink)}
+.seg button+button{border-left:1.5px solid color-mix(in srgb,var(--ink) 28%,transparent)}
+.seg button[aria-pressed="true"]{background:var(--pc);color:#fff}
+.seg button[data-bay=next][aria-pressed="true"]{color:#1D1405}
+.sub-list{display:grid;gap:6px}
+.subrow{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr) auto auto auto;gap:6px;align-items:center}
+@media (max-width:520px){.subrow{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr) auto}.subrow .callx,.subrow .copyx{grid-row:2}}
+.mini{border:1.5px solid color-mix(in srgb,var(--ink) 28%,transparent);background:transparent;border-radius:5px;padding:6px 9px;font-family:var(--f-mono);font-size:12px;color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;min-height:34px;white-space:nowrap}
+.steprow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:center}
+.steprow input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok)}
+.maplink{font-family:var(--f-mono);font-size:13px;color:var(--later)}
+.foot{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;border-top:1px dashed color-mix(in srgb,var(--ink) 25%,transparent);padding-top:12px}
+.foot .row{gap:8px}
+.foot .btn.alt{color:var(--ink);border-color:color-mix(in srgb,var(--ink) 30%,transparent)}
+.mv{display:flex;flex-direction:column;gap:3px}
+.mv .mini{min-height:18px;padding:0 9px;font-size:10px;line-height:1}
+.mv .mini:disabled{opacity:.3}
+.typerow{display:grid;grid-template-columns:auto 44px minmax(0,1fr) auto;gap:8px;align-items:center}
+.swatch{width:44px;height:38px;border-radius:6px;border:2px solid rgba(0,0,0,.25);background:var(--c)}
+.typerow .inp{padding:7px 8px}
+.typerow .code{font-family:var(--f-mono);text-transform:uppercase}
+.note{font-size:13px;color:var(--ink-muted)}
+
+.toast{position:fixed;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;background:var(--panel);color:var(--crt);
+  font-family:var(--f-mono);font-size:14px;letter-spacing:.05em;padding:10px 16px;border-radius:6px;border:1px solid var(--crt-dim);box-shadow:0 6px 18px rgba(0,0,0,.35);max-width:calc(100% - 32px)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="mast">
+      <h1>TONY'S <span>LIST</span></h1>
+      <div class="readout" id="readout">— — —</div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" id="tab-strips" data-tab="strips" aria-selected="true">STRIPS<span class="n" id="n-strips"></span></button>
+      <button class="tab" role="tab" id="tab-thoughts" data-tab="thoughts" aria-selected="false">THOUGHTS<span class="n" id="n-thoughts"></span></button>
+      <button class="tab" role="tab" id="tab-landed" data-tab="landed" aria-selected="false">LANDED<span class="n" id="n-landed"></span></button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="sync" id="sync" hidden></div>
+
+  <!-- STRIPS -->
+  <section id="view-strips" role="tabpanel" aria-labelledby="tab-strips">
+    <div class="crt board-flap" id="brief">
+      <div class="hdr"><span>DAILY REVIEW · TODAY'S 3</span><span id="brief-when">STANDING BY</span></div>
+      <div class="flapboard" id="flapboard" aria-hidden="true"></div>
+      <div class="sr" id="brief-sr" aria-live="polite"></div>
+      <div class="flapctl">
+        <button class="fbtn" type="button" id="flap-replay">FLIP BOARD</button>
+        <button class="fbtn" type="button" id="flap-refresh" hidden>REFRESH REVIEW</button>
+        <span class="fstat" id="flap-status" role="status"></span>
+      </div>
+    </div>
+
+    <form class="add" id="add" autocomplete="off">
+      <label class="sr" for="add-title">New strip</label>
+      <input type="text" id="add-title" placeholder="Add a strip… e.g. Call Lauderdale Marine re haul-out" enterkeyhint="done">
+      <label class="sr" for="add-type">Type</label>
+      <select id="add-type"></select>
+      <label class="sr" for="add-bay">Priority</label>
+      <select id="add-bay"><option value="now">NOW</option><option value="next" selected>NEXT</option><option value="later">LATER</option></select>
+      <button class="btn amber" type="submit">FILE IT</button>
+    </form>
+    <p class="hint">Tap a strip to add phone numbers, a place, steps or notes. Drag the colored edge to re-rack it. Tap the priority to bump it.</p>
+
+    <div class="filters" id="filters"></div>
+
+    <div class="board" id="board">
+      <section class="bay" data-bay="now" style="--bc:var(--now)"><header><h3>NOW</h3><span class="sub" id="c-now">HIGH</span></header><ol class="rack" id="rack-now" data-bay="now" data-empty="Nothing urgent. Drag a strip here to make it a priority."></ol></section>
+      <section class="bay" data-bay="next" style="--bc:var(--next)"><header><h3>NEXT</h3><span class="sub" id="c-next">MEDIUM</span></header><ol class="rack" id="rack-next" data-bay="next" data-empty="Nothing queued."></ol></section>
+      <section class="bay" data-bay="later" style="--bc:var(--later)"><header><h3>LATER</h3><span class="sub" id="c-later">LOW</span></header><ol class="rack" id="rack-later" data-bay="later" data-empty="Someday pile is empty."></ol></section>
+    </div>
+  </section>
+
+  <!-- THOUGHTS -->
+  <section id="view-thoughts" role="tabpanel" aria-labelledby="tab-thoughts" class="panel" hidden>
+    <div class="compose">
+      <label for="th-text">LOG A THOUGHT</label>
+      <textarea id="th-text" placeholder="Talk it out. iPhone/iPad: tap the mic on the keyboard. Mac: press the Fn (globe) key twice to dictate."></textarea>
+      <div class="row end">
+        <span class="status" id="th-status"></span>
+        <button class="btn alt" type="button" id="th-clear">CLEAR</button>
+        <button class="btn amber" type="button" id="th-save">LOG IT</button>
+      </div>
+    </div>
+    <p class="hint">Thoughts are saved on this device, offline too, and sync when you have signal. Turning them into strips with Claude is not in this offline version yet: file them by hand.</p>
+    <ol class="log" id="th-log"></ol>
+  </section>
+
+  <!-- LANDED -->
+  <section id="view-landed" role="tabpanel" aria-labelledby="tab-landed" class="panel landed" hidden>
+    <div class="row" style="justify-content:space-between">
+      <p class="hint" style="margin:0">Completed strips. Restore one to put it back in its bay.</p>
+      <button class="btn danger" type="button" id="clear-landed">CLEAR OLDER THAN 30 DAYS</button>
+    </div>
+    <ol class="log" id="landed-log"></ol>
+  </section>
+</main>
+
+<div id="sheet-root"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="vendor/Sortable.min.js"></script>
+<script src="config.js"></script>
+<script src="localdb.js"></script>
+<script src="sync.js"></script>
+<script>
+(() => {
+"use strict";
+/* ============ constants ============ */
+const PALETTE = ["#D9572B","#E3A32B","#7E9B35","#2E9488","#3F86C4","#5A5FB0","#8E5A9B","#C6487A","#8B5E3C","#5F6B73","#B8322A","#3C7D52"];
+const DEFAULT_TYPES = [
+  {id:"bot", code:"BOT", name:"Boat", color:"#2E9488"},
+  {id:"avn", code:"AVN", name:"Aviation", color:"#3F86C4"},
+  {id:"car", code:"CAR", name:"Cars", color:"#D9572B"},
+  {id:"fin", code:"FIN", name:"Finance", color:"#3C7D52"},
+  {id:"hom", code:"HOM", name:"Home & admin", color:"#8B5E3C"},
+  {id:"fam", code:"FAM", name:"Family", color:"#C6487A"},
+  {id:"trv", code:"TRV", name:"Travel", color:"#5A5FB0"},
+  {id:"smd", code:"SMD", name:"Someday", color:"#5F6B73"}
+];
+const BAYS = ["now","next","later"];
+const BAYNAME = {now:"NOW", next:"NEXT", later:"LATER"};
+const BAYCOLOR = {now:"var(--now)", next:"var(--next)", later:"var(--later)"};
+const ICON = {
+  phone:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 5a2 2 0 0 1 2-2z"/></svg>',
+  pin:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
+  steps:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M4 6h2M4 12h2M4 18h2M9 6h11M9 12h11M9 18h11"/></svg>',
+  note:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M5 4h14v12l-4 4H5z"/><path d="M15 20v-4h4"/></svg>',
+  check:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M4 12.5l5 5L20 6.5"/></svg>',
+  grip:'<svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true"><circle cx="3" cy="3" r="1.5"/><circle cx="9" cy="3" r="1.5"/><circle cx="3" cy="8" r="1.5"/><circle cx="9" cy="8" r="1.5"/><circle cx="3" cy="13" r="1.5"/><circle cx="9" cy="13" r="1.5"/></svg>'
+};
+
+/* ============ state ============ */
+const S = { tasks:new Map(), thoughts:[], types:DEFAULT_TYPES.slice(), brief:null, filter:"all", tab:"strips",
+            dragging:false, proposals:{}, db:null, sample:null, ready:false };
+
+/* ============ helpers ============ */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,"").slice(0,16) : Date.now().toString(36)+Math.random().toString(36).slice(2,8));
+const pad = n => String(n).padStart(2,"0");
+const MON = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+const DOW = ["SUN","MON","TUE","WED","THU","FRI","SAT"];
+const todayISO = () => { const d=new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const parseISO = s => { const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(s||""); return m ? new Date(+m[1], +m[2]-1, +m[3]) : null; };
+const dayDiff = s => { const d=parseISO(s); if(!d) return null; const t=parseISO(todayISO()); return Math.round((d-t)/86400000); };
+const fmtDay = s => { const d=parseISO(s); return d ? `${pad(d.getDate())} ${MON[d.getMonth()]}` : ""; };
+const fmtStamp = iso => { const d=new Date(iso); if(isNaN(d)) return ""; return `${DOW[d.getDay()]} ${pad(d.getDate())} ${MON[d.getMonth()]} · ${pad(d.getHours())}${pad(d.getMinutes())}L`; };
+const typeOf = id => S.types.find(t=>t.id===id) || S.types[0] || {id:"gen",code:"GEN",name:"General",color:"#5F6B73"};
+const store = { get(k){ try{return localStorage.getItem(k);}catch(e){return null;} }, set(k,v){ try{localStorage.setItem(k,v);}catch(e){} } };
+
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.hidden=false; clearTimeout(toastT); toastT=setTimeout(()=>t.hidden=true, 2600); }
+function errText(e){
+  const c=e && e.code;
+  if(c==="quota_exceeded") return "Storage is full. Clear old landed strips or thoughts.";
+  if(c==="invalid_argument") return "That change was refused. You may have view-only access.";
+  if(c==="resource_exhausted") return "Too many changes at once. Wait a moment and try again.";
+  return "Couldn't save. Check your connection and try again.";
+}
+
+/* one write at a time per document */
+const chains = {};
+function write(path, fn){
+  if(!S.db){ return Promise.resolve(); }
+  chains[path] = (chains[path]||Promise.resolve()).then(fn).catch(e=>{ console.warn(e); toast(errText(e)); });
+  return chains[path];
+}
+const tDoc = id => S.db.doc("tasks/"+id);
+const hDoc = id => S.db.doc("thoughts/"+id);
+
+function saveTask(t){ t.updatedAt=new Date().toISOString(); S.tasks.set(t.id, t); renderAll(); const body=clone(t); delete body.id; return write("tasks/"+t.id, ()=>tDoc(t.id).set(body)); }
+function patchTask(id, patch){ const t=S.tasks.get(id); if(!t) return; Object.assign(t, patch, {updatedAt:new Date().toISOString()}); renderAll(); return write("tasks/"+id, ()=>tDoc(id).update(clone({...patch, updatedAt:t.updatedAt}))); }
+function deleteTask(id){ S.tasks.delete(id); renderAll(); return write("tasks/"+id, ()=>tDoc(id).delete()); }
+const clone = o => JSON.parse(JSON.stringify(o));
+
+function bayList(bay){ return [...S.tasks.values()].filter(t=>!t.done && (t.bay||"next")===bay).sort((a,b)=>(a.order??0)-(b.order??0)); }
+function topOrder(bay){ const l=bayList(bay); return l.length ? (l[0].order??0)-1000 : Date.now()/1000; }
+function bottomOrder(bay){ const l=bayList(bay); return l.length ? (l[l.length-1].order??0)+1000 : Date.now()/1000; }
+
+/* ============ rendering ============ */
+function renderAll(){
+  if(S.dragging) return;
+  renderReadout(); renderTypeSelects(); renderFilters(); renderBoard(); renderThoughts(); renderLanded(); renderCounts();
+}
+function renderReadout(){
+  const d=new Date(); const active=[...S.tasks.values()].filter(t=>!t.done).length;
+  const over=[...S.tasks.values()].filter(t=>!t.done && t.due && dayDiff(t.due)<0).length;
+  $("#readout").innerHTML = `${DOW[d.getDay()]} ${pad(d.getDate())} ${MON[d.getMonth()]} · <b>${pad(d.getHours())}${pad(d.getMinutes())}L</b> · <b>${active}</b> ACTIVE${over?` · <b style="color:var(--bad)">${over} OVERDUE</b>`:""}`;
+}
+function renderCounts(){
+  const all=[...S.tasks.values()];
+  $("#n-strips").textContent = all.filter(t=>!t.done).length || "";
+  $("#n-thoughts").textContent = S.thoughts.filter(t=>!t.filed).length || "";
+  $("#n-landed").textContent = all.filter(t=>t.done).length || "";
+  for(const b of BAYS){ const n=bayList(b).length; $("#c-"+b).textContent = `${({now:"HIGH",next:"MEDIUM",later:"LOW"})[b]} · ${n}`; }
+}
+function typeOptions(sel){ return S.types.map(t=>`<option value="${esc(t.id)}"${t.id===sel?" selected":""}>${esc(t.name)}</option>`).join(""); }
+function renderTypeSelects(){
+  const s=$("#add-type"); const cur=s.value || store.get("cl.lastType") || S.types[0]?.id;
+  s.innerHTML = typeOptions(S.types.some(t=>t.id===cur)?cur:S.types[0]?.id);
+}
+function renderFilters(){
+  const counts={}; for(const t of S.tasks.values()) if(!t.done) counts[t.type]=(counts[t.type]||0)+1;
+  if(S.filter!=="all" && !S.types.some(t=>t.id===S.filter)) S.filter="all";
+  let h=`<button class="chip" data-filter="all" aria-pressed="${S.filter==="all"}">ALL</button>`;
+  for(const t of S.types){ h+=`<button class="chip" data-filter="${esc(t.id)}" style="--c:${esc(t.color)}" aria-pressed="${S.filter===t.id}"><i></i>${esc(t.name)} <span style="opacity:.7">${counts[t.id]||0}</span></button>`; }
+  h+=`<button class="chip ghost" id="edit-types" type="button">+ EDIT TYPES</button><button class="chip ghost" id="open-data" type="button">SYNC / DATA</button>`;
+  $("#filters").innerHTML=h;
+}
+function stampFor(t){
+  if(!t.due) return "";
+  const n=dayDiff(t.due);
+  if(n<0) return `<span class="stamp over">OVERDUE ${-n}D</span>`;
+  if(n===0) return `<span class="stamp today">DUE TODAY</span>`;
+  if(n<=3) return `<span class="stamp soon">${n===1?"TOMORROW":"IN "+n+"D"} · ${fmtDay(t.due)}</span>`;
+  return `<span class="stamp later">DUE ${fmtDay(t.due)}</span>`;
+}
+function stripHTML(t, fresh){
+  const ty=typeOf(t.type); const phones=(t.phones||[]).filter(p=>p.number); const steps=t.steps||[];
+  const place=t.location && (t.location.name||t.location.address);
+  let meta=stampFor(t);
+  if(phones.length) meta+=`<span class="m">${ICON.phone}<span>${esc(phones[0].label||phones[0].number)}${phones.length>1?" +"+(phones.length-1):""}</span></span>`;
+  if(place) meta+=`<span class="m">${ICON.pin}<span>${esc(t.location.name||t.location.address)}</span></span>`;
+  if(steps.length) meta+=`<span class="m">${ICON.steps}<span>${steps.filter(s=>s.done).length}/${steps.length}</span></span>`;
+  if(t.notes) meta+=`<span class="m">${ICON.note}</span>`;
+  const bay=t.bay||"next";
+  return `<li class="strip${fresh?" new":""}" data-id="${esc(t.id)}">
+    <div class="grip" style="--c:${esc(ty.color)}" title="Drag to move" aria-hidden="true">${ICON.grip}</div>
+    <button class="sbody" type="button" data-act="open" aria-label="Open ${esc(t.title)}"><span class="tyl"><i style="background:${esc(ty.color)}"></i>${esc(ty.name)}</span><span class="ttl">${esc(t.title)}</span>${meta?`<span class="meta">${meta}</span>`:""}</button>
+    <div class="sacts">
+      <button class="pri" type="button" data-act="pri" style="--pc:${BAYCOLOR[bay]}" title="Change priority" aria-label="Priority ${BAYNAME[bay]}, tap to change">${BAYNAME[bay]}</button>
+      <button class="land" type="button" data-act="done" title="Mark done" aria-label="Mark done">${ICON.check}</button>
+    </div></li>`;
+}
+let seen = new Set(), firstPaint = true;
+function renderBoard(){
+  for(const b of BAYS){
+    const list=bayList(b).filter(t=>S.filter==="all"||t.type===S.filter);
+    $("#rack-"+b).innerHTML = list.map(t=>stripHTML(t, !firstPaint && !seen.has(t.id))).join("");
+  }
+  seen = new Set(S.tasks.keys()); if(S.ready) firstPaint=false;
+}
+/* ============ split-flap board ============ */
+const FLAP_CHARS=" ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:;-/&'!?#+()<>%$@";
+const RM = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : {matches:false};
+const F={cols:0, grid:[], active:new Set(), raf:0, sig:""};
+function flapNorm(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase()
+  .replace(/[–—]/g,"-").replace(/≤/g,"<").replace(/≥/g,">").replace(/[‘’]/g,"'").replace(/…/g,".").replace(/·/g,"-"); }
+function wrapText(text, width, maxLines){
+  const words=flapNorm(text).split(/\s+/).filter(Boolean); const lines=[]; let cur="";
+  for(let w of words){
+    while(w.length>width){ if(cur){ lines.push(cur); cur=""; } lines.push(w.slice(0,width)); w=w.slice(width); }
+    if(!w) continue;
+    if(!cur) cur=w; else if((cur+" "+w).length<=width) cur+=" "+w; else { lines.push(cur); cur=w; }
+  }
+  if(cur) lines.push(cur);
+  if(lines.length>maxLines){ const keep=lines.slice(0,maxLines); const last=keep[maxLines-1]; keep[maxLines-1]=(last.length>=width?last.slice(0,width-1):last)+"."; return keep; }
+  return lines.length?lines:[""];
+}
+function measureCols(){
+  const host=$("#flapboard"); const cs=getComputedStyle(host);
+  const cw=parseFloat(cs.getPropertyValue("--cw"))||15, gap=parseFloat(cs.getPropertyValue("--fgap"))||2;
+  return Math.max(16, Math.floor((host.clientWidth+gap)/(cw+gap)));
+}
+function boardLines(cols){
+  const b=S.brief, L=[], narrow=cols<26;
+  const push=(t,cls)=>L.push({t:t.padEnd(cols).slice(0,cols), cls});
+  if(!b){ wrapText("Awaiting first review",cols,2).forEach(t=>push(t,"hl")); wrapText("Daily review not connected here yet",cols,2).forEach((t,j)=>push(t,"rm"+(j?"":" first"))); return L; }
+  wrapText(b.headline||"Today's three", cols, 8).forEach(t=>push(t,"hl"));
+  (b.top||[]).slice(0,3).forEach((x,i)=>{
+    wrapText(x.title, cols-2, 4).forEach((t,j)=>push((j===0?String(i+1)+" ":"  ")+t, "it"+(j===0?" first":"")));
+    if(x.why) wrapText(x.why, cols-2, 3).forEach(t=>push("  "+t,"rm"));
+  });
+  /* flags: pack whole flags per row with " / ", never split one across rows unless it alone is too long */
+  const fl=[]; let cur="";
+  for(const f0 of (b.flags||[])){ const f=flapNorm(f0).trim(); if(!f) continue;
+    if(f.length>cols){ if(cur){ fl.push(cur); cur=""; } fl.push(...wrapText(f, cols, 3)); continue; }
+    if(!cur) cur=f; else if((cur+" / "+f).length<=cols) cur+=" / "+f; else { fl.push(cur); cur=f; } }
+  if(cur) fl.push(cur);
+  fl.forEach((t,j)=>push(t,"fl"+(j===0?" first":"")));
+  return L;
+}
+const CELL='<span class="fc"><span class="h u"><b> </b></span><span class="h l"><b> </b></span><span class="h u fu"><b> </b></span><span class="h l fl"><b> </b></span></span>';
+function buildGrid(lines){
+  for(const c of F.active) c.anims.forEach(a=>a.cancel());
+  F.active.clear();
+  const host=$("#flapboard");
+  host.innerHTML=lines.map(l=>`<div class="frow ${l.cls}">${CELL.repeat(F.cols)}</div>`).join("");
+  F.grid=[...host.querySelectorAll(".frow")].map(r=>[...r.children].map(el=>{
+    const h=el.children; return {u:h[0].firstChild, l:h[1].firstChild, fu:h[2], fl:h[3], fuB:h[2].firstChild, flB:h[3].firstChild, cur:" ", q:[], next:0, anims:[]};
+  }));
+}
+function setChar(cell,ch){ cell.anims.forEach(a=>a.cancel()); cell.anims=[]; cell.cur=ch; cell.u.textContent=cell.l.textContent=cell.fuB.textContent=cell.flB.textContent=ch; }
+function flip(cell,ch){
+  const was=cell.cur; if(was===ch) return;
+  cell.anims.forEach(a=>a.cancel());
+  cell.cur=ch; cell.u.textContent=ch; cell.l.textContent=was; cell.fuB.textContent=was; cell.flB.textContent=ch;
+  if(!cell.fu.animate){ setChar(cell,ch); return; }
+  const H=34;
+  const a1=cell.fu.animate([{transform:"rotateX(0deg)"},{transform:"rotateX(-90deg)"}],{duration:H,easing:"ease-in",fill:"forwards"});
+  const a2=cell.fl.animate([{transform:"rotateX(90deg)"},{transform:"rotateX(0deg)"}],{duration:H,delay:H,easing:"ease-out",fill:"both"});
+  a2.onfinish=()=>{ cell.l.textContent=ch; };
+  cell.anims=[a1,a2];
+}
+function setTargets(lines){
+  const now=performance.now(), N=FLAP_CHARS.length;
+  lines.forEach((ln,r)=>{ const row=F.grid[r]; if(!row) return;
+    for(let c=0;c<F.cols;c++){
+      const cell=row[c], tgt=ln.t[c]||" ";
+      if(RM.matches){ setChar(cell,tgt); cell.q=[]; F.active.delete(cell); continue; }
+      if(cell.cur===tgt){ cell.q=[]; F.active.delete(cell); continue; }
+      const ti=FLAP_CHARS.indexOf(tgt); let seq=[];
+      if(ti<0) seq=[tgt];
+      else {
+        const ci=Math.max(0,FLAP_CHARS.indexOf(cell.cur)); const dist=(ti-ci+N)%N;
+        const n=Math.max(1,Math.min(dist, 5+Math.floor(Math.random()*9)));
+        for(let k=n-1;k>=0;k--) seq.push(FLAP_CHARS[(ti-k+N)%N]);
+      }
+      cell.q=seq; cell.next=now+c*14+r*55+Math.random()*60; F.active.add(cell);
+    }
+  });
+  if(!F.raf && F.active.size) F.raf=requestAnimationFrame(flapTick);
+}
+function flapTick(now){
+  for(const cell of F.active){
+    if(now<cell.next) continue;
+    const ch=cell.q.shift(); if(ch!==undefined) flip(cell,ch);
+    if(cell.q.length) cell.next=now+72+Math.random()*24; else F.active.delete(cell);
+  }
+  F.raf = F.active.size ? requestAnimationFrame(flapTick) : 0;
+}
+function renderBrief(){
+  const b=S.brief, box=$("#brief");
+  const stale=!!b && b.date!==todayISO();
+  box.classList.toggle("stale", stale);
+  $("#brief-when").textContent = b ? (stale?"LAST REVIEW · ":"")+(b.generatedAt?fmtStamp(b.generatedAt):fmtDay(b.date)) : "STANDING BY";
+  $("#brief-sr").textContent = b ? [b.headline, ...(b.top||[]).map((x,i)=>`${i+1}. ${x.title}${x.why?", "+x.why:""}`), ...(b.flags||[])].filter(Boolean).join(". ") : "Waiting for the first daily review.";
+  F.cols=measureCols();
+  const lines=boardLines(F.cols);
+  const sig=lines.map(l=>l.cls).join("|")+"#"+F.cols;
+  if(sig!==F.sig){ buildGrid(lines); F.sig=sig; }
+  setTargets(lines);
+}
+function replayBoard(){
+  for(const row of F.grid) for(const c of row){ setChar(c," "); c.q=[]; }
+  F.active.clear(); renderBrief();
+}
+const isoOf = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+async function refreshReview(){
+  if(!S.sample || !S.db) return;
+  const btn=$("#flap-refresh"), st=$("#flap-status");
+  btn.disabled=true; st.textContent="REVIEWING… (FIRST TIME: ALLOW CLAUDE)";
+  const now=new Date(), today=isoOf(now); const y=new Date(now); y.setDate(y.getDate()-1); const yISO=isoOf(y);
+  const open=[...S.tasks.values()].filter(t=>!t.done).map(t=>({title:t.title, type:typeOf(t.type).name, bay:t.bay||"next", order:t.order??0, due:t.due||null,
+    steps:(t.steps||[]).length?`${t.steps.filter(s=>s.done).length}/${t.steps.length} done`:null, updatedAt:t.updatedAt||t.createdAt||null}));
+  const landedY=[...S.tasks.values()].filter(t=>t.done && t.doneAt && isoOf(new Date(t.doneAt))===yISO).length;
+  const unfiled=S.thoughts.filter(x=>!x.filed).length;
+  const prompt=`You are reviewing a person's personal task board. Today is ${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()]} ${today}, local time ${pad(now.getHours())}${pad(now.getMinutes())}.
+Open tasks (JSON): ${JSON.stringify(open).slice(0,60000)}
+Bays: now = high, next = medium, later = low priority; lower "order" = higher in its bay. Tasks landed (completed) yesterday: ${landedY}. Unfiled thoughts: ${unfiled}.
+Pick "Today's 3": overdue or due today/tomorrow first, then NOW bay by order, then items due within 3 days, then stuck items (updatedAt older than 14 days in NOW/NEXT). Each gets a short "why" (max 40 chars, e.g. "Due today", "Overdue 2 days", "Top of NOW").
+Flags: short uppercase chips, max 5, each max 28 chars, e.g. "2 OVERDUE", "3 DUE <=3 DAYS", "NOW BAY HAS 9 - TRIM", "4 STALE >14D", "2 UNFILED THOUGHTS", "LANDED 5 YESTERDAY". Only flags that are true. End with "NEXT REVIEW 0645 ET".
+Headline: one plain sentence, max 70 chars, peer-to-peer tone, no fluff.
+Reply with ONLY JSON: {"headline": "...", "top": [{"title": "<exact task title>", "why": "..."}], "flags": ["..."]}. If there are no open tasks, top is [] and the headline says the board is clear.`;
+  try{
+    const out=await S.sample.json(prompt, {modelTier:"default", cache:false});
+    const doc={date:today, generatedAt:new Date().toISOString(), headline:String(out?.headline||"Board reviewed").slice(0,140),
+      top:(Array.isArray(out?.top)?out.top:[]).slice(0,3).map(x=>({title:String(x?.title||"").slice(0,120), why:String(x?.why||"").slice(0,80)})).filter(x=>x.title),
+      flags:(Array.isArray(out?.flags)?out.flags:[]).slice(0,6).map(f=>String(f).slice(0,40))};
+    S.brief=doc; renderBrief(); st.textContent="UPDATED";
+    write("meta/brief", ()=>S.db.doc("meta/brief").set(doc));
+  }catch(e){
+    const c=e&&e.code;
+    if(["not_granted","sampling_disabled","capability_disabled","capability_removed","not_declared"].includes(c)){ st.textContent="CLAUDE ISN'T ALLOWED ON THIS PAGE"; btn.hidden=true; }
+    else if(c==="rate_limited") st.textContent="USAGE LIMIT. TRY LATER.";
+    else if(c==="invalid_json") st.textContent="GARBLED ANSWER. TRY AGAIN.";
+    else st.textContent="COULDN'T REACH CLAUDE. TRY AGAIN.";
+  }finally{
+    btn.disabled=false; setTimeout(()=>{ if(st.textContent==="UPDATED") st.textContent=""; }, 4000);
+  }
+}
+$("#flap-replay").addEventListener("click", replayBoard);
+$("#flap-refresh").addEventListener("click", refreshReview);
+if(window.ResizeObserver){ let rt; new ResizeObserver(()=>{ clearTimeout(rt); rt=setTimeout(()=>{ if(measureCols()!==F.cols) renderBrief(); },120); }).observe($("#flapboard")); }
+function renderThoughts(){
+  const list=[...S.thoughts].sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""));
+  const el=$("#th-log");
+  if(!list.length){ el.innerHTML=`<li class="empty">No thoughts logged yet. Dictate one above. Everything you log stays here until you delete it.</li>`; return; }
+  el.innerHTML = list.map(th=>{
+    const p=S.proposals[th.id];
+    let prop="";
+    if(p){
+      if(p.state==="busy") prop=`<div class="proposals"><span class="status">${esc(p.msg||"Thinking…")}</span><div class="row"><button class="btn alt" type="button" data-act="stop" data-id="${th.id}">STOP</button></div></div>`;
+      else if(p.state==="error") prop=`<div class="proposals"><span class="status">${esc(p.msg)}</span></div>`;
+      else if(p.state==="ready"){
+        if(!p.items.length) prop=`<div class="proposals"><span class="status">No tasks found in this one. It stays as a thought.</span></div>`;
+        else prop=`<div class="proposals">${p.items.map((it,i)=>`
+          <div class="prop">
+            <input type="checkbox" id="pp-${th.id}-${i}" data-pi="${i}" data-id="${th.id}" ${it.keep?"checked":""} aria-label="Keep">
+            <div>
+              <input type="text" id="pt-${th.id}-${i}" data-pi="${i}" data-id="${th.id}" data-f="title" value="${esc(it.title)}" aria-label="Task title">
+              <div class="pmeta">
+                <select class="sel" id="ps-${th.id}-${i}" data-pi="${i}" data-id="${th.id}" data-f="type" aria-label="Type">${typeOptions(it.type)}</select>
+                <select class="sel" id="pb-${th.id}-${i}" data-pi="${i}" data-id="${th.id}" data-f="bay" aria-label="Priority">${BAYS.map(b=>`<option value="${b}"${b===it.bay?" selected":""}>${BAYNAME[b]}</option>`).join("")}</select>
+                ${it.due?`<span>DUE ${fmtDay(it.due)}</span>`:""}${it.phone?`<span>${ICON.phone} ${esc(it.phone)}</span>`:""}${it.place||it.address?`<span>${ICON.pin} ${esc(it.place||it.address)}</span>`:""}
+              </div>
+            </div>
+          </div>`).join("")}
+          <div class="row end"><button class="btn alt" type="button" data-act="dismiss" data-id="${th.id}">DISMISS</button><button class="btn amber" type="button" data-act="file" data-id="${th.id}">FILE SELECTED</button></div></div>`;
+      }
+    }
+    return `<li class="entry${th.filed?" filed":""}" data-id="${th.id}">
+      <div class="when"><span>${fmtStamp(th.createdAt)}</span><span>${th.filed?"FILED":"OPEN"}</span></div>
+      <div class="txt">${esc(th.text)}</div>
+      <div class="row">
+        ${S.sample?`<button class="btn" type="button" data-act="convert" data-id="${th.id}" ${p&&p.state==="busy"?"disabled":""}>TURN INTO STRIPS</button>`:""}
+        <button class="btn alt" type="button" data-act="tofile" data-id="${th.id}">${th.filed?"REOPEN":"MARK FILED"}</button>
+        <button class="btn danger" type="button" data-act="delthought" data-id="${th.id}">DELETE</button>
+      </div>${prop}</li>`;
+  }).join("");
+}
+function renderLanded(){
+  const list=[...S.tasks.values()].filter(t=>t.done).sort((a,b)=>(b.doneAt||"").localeCompare(a.doneAt||""));
+  const el=$("#landed-log");
+  if(!list.length){ el.innerHTML=`<li class="empty">Nothing landed yet. Tap the check on a strip when it's done.</li>`; return; }
+  el.innerHTML = list.map(t=>{ const ty=typeOf(t.type); return `<li class="entry" data-id="${t.id}" style="border-left-color:${esc(ty.color)}">
+    <div class="when"><span>${esc(ty.name).toUpperCase()} · LANDED ${fmtStamp(t.doneAt)}</span></div>
+    <div class="ttl">${esc(t.title)}</div>
+    <div class="row"><button class="btn alt" type="button" data-act="restore" data-id="${t.id}">RESTORE</button><button class="btn danger" type="button" data-act="dellanded" data-id="${t.id}">DELETE</button></div></li>`; }).join("");
+}
+
+/* ============ tabs ============ */
+function setTab(name, push){
+  if(!["strips","thoughts","landed"].includes(name)) name="strips";
+  S.tab=name;
+  for(const b of document.querySelectorAll(".tab")) b.setAttribute("aria-selected", String(b.dataset.tab===name));
+  for(const v of ["strips","thoughts","landed"]) $("#view-"+v).hidden = v!==name;
+  store.set("cl.tab", name);
+  if(push){ try{ history.replaceState(null,"","#"+name); }catch(e){} }
+}
+document.querySelector(".tabs").addEventListener("click", e=>{ const b=e.target.closest(".tab"); if(b) setTab(b.dataset.tab, true); });
+
+/* ============ quick add ============ */
+$("#add").addEventListener("submit", e=>{
+  e.preventDefault();
+  const title=$("#add-title").value.trim(); if(!title) { $("#add-title").focus(); return; }
+  const type=$("#add-type").value, bay=$("#add-bay").value;
+  store.set("cl.lastType", type);
+  const t={id:uid(), title, type, bay, order:bay==="now"?topOrder(bay):bottomOrder(bay), due:null, location:{name:"",address:""}, phones:[], steps:[], notes:"",
+           done:false, doneAt:null, source:"manual", createdAt:new Date().toISOString()};
+  saveTask(t); $("#add-title").value=""; toast(`Filed in ${BAYNAME[bay]}`);
+});
+
+/* ============ filters ============ */
+$("#filters").addEventListener("click", e=>{
+  if(e.target.closest("#edit-types")) return openTypes();
+  if(e.target.closest("#open-data")) return openData();
+  const c=e.target.closest("[data-filter]"); if(!c) return;
+  S.filter=c.dataset.filter; store.set("cl.filter", S.filter); renderFilters(); renderBoard();
+});
+
+/* ============ strip actions ============ */
+$("#board").addEventListener("click", e=>{
+  const btn=e.target.closest("[data-act]"); if(!btn) return;
+  const id=btn.closest(".strip")?.dataset.id; const t=S.tasks.get(id); if(!t) return;
+  const act=btn.dataset.act;
+  if(act==="open") openEditor(t);
+  if(act==="pri"){ /* bump up one bay; NOW wraps to LATER */ const up={next:"now", later:"next", now:"later"}[t.bay||"next"]; patchTask(id,{bay:up, order:topOrder(up)}); toast(`Moved to ${BAYNAME[up]}`); }
+  if(act==="done"){ patchTask(id,{done:true, doneAt:new Date().toISOString()}); toast("Landed. Find it under LANDED."); }
+});
+
+/* drag between bays */
+function setupSortable(){
+  if(!window.Sortable) return;
+  for(const b of BAYS){
+    Sortable.create($("#rack-"+b), {
+      group:"bays", handle:".grip", animation:160, delay:120, delayOnTouchOnly:true, ghostClass:"sortable-ghost", chosenClass:"sortable-chosen", dragClass:"sortable-drag",
+      onStart(){ S.dragging=true; },
+      onEnd(ev){
+        S.dragging=false;
+        const id=ev.item.dataset.id, t=S.tasks.get(id), toBay=ev.to.dataset.bay;
+        if(!t){ renderAll(); return; }
+        const sibs=[...ev.to.querySelectorAll(".strip")].map(li=>li.dataset.id);
+        const i=sibs.indexOf(id); const prev=S.tasks.get(sibs[i-1]), next=S.tasks.get(sibs[i+1]);
+        let order;
+        if(prev && next) order=((prev.order??0)+(next.order??0))/2;
+        else if(prev) order=(prev.order??0)+1000;
+        else if(next) order=(next.order??0)-1000;
+        else order=Date.now()/1000;
+        const patch={order}; if(toBay!==t.bay) patch.bay=toBay;
+        patchTask(id, patch);
+        if(patch.bay) toast(`Re-racked to ${BAYNAME[toBay]}`);
+      }
+    });
+  }
+}
+
+/* ============ editor sheet ============ */
+let draft=null;
+function closeSheet(){ $("#sheet-root").innerHTML=""; draft=null; document.removeEventListener("keydown", escClose); }
+function escClose(e){ if(e.key==="Escape") closeSheet(); }
+function telHref(n){ return "tel:"+String(n).replace(/[^\d+]/g,""); }
+function mapsHref(loc){ const q=[loc.name,loc.address].filter(Boolean).join(", "); return "https://maps.apple.com/?q="+encodeURIComponent(q); }
+
+function openEditor(t){
+  const isNew=!t;
+  draft = clone(t || {id:uid(), title:"", type:$("#add-type").value||S.types[0]?.id, bay:"next", due:null, location:{name:"",address:""}, phones:[], steps:[], notes:"", done:false, source:"manual", createdAt:new Date().toISOString()});
+  draft.location = draft.location || {name:"",address:""}; draft.phones=draft.phones||[]; draft.steps=draft.steps||[];
+  drawEditor(isNew);
+  document.addEventListener("keydown", escClose);
+  setTimeout(()=>{ const f=$("#ed-title"); if(f && isNew) f.focus(); }, 30);
+}
+function drawEditor(isNew){
+  const d=draft, ty=typeOf(d.type);
+  const loc=d.location; const hasLoc=loc.name||loc.address;
+  $("#sheet-root").innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ed-h" style="--sc:${esc(ty.color)}">
+    <h4 id="ed-h"><span>${isNew?"NEW STRIP":"STRIP · "+esc(ty.name).toUpperCase()}</span><button class="x" type="button" data-act="close" aria-label="Close">×</button></h4>
+    <div class="fld"><label for="ed-title">Task</label><textarea class="inp" id="ed-title" rows="2">${esc(d.title)}</textarea></div>
+    <div class="grid2">
+      <div class="fld"><label for="ed-type">Type</label><select class="inp" id="ed-type">${typeOptions(d.type)}</select></div>
+      <div class="fld"><label for="ed-due">Due</label><input class="inp" type="date" id="ed-due" value="${esc(d.due||"")}"></div>
+    </div>
+    <div class="fld"><span class="lbl">Priority</span><div class="seg" id="ed-bay">${BAYS.map(b=>`<button type="button" data-bay="${b}" style="--pc:${BAYCOLOR[b]}" aria-pressed="${d.bay===b}">${BAYNAME[b]}</button>`).join("")}</div></div>
+    <div class="fld"><span class="lbl">Place</span>
+      <div class="grid2"><input class="inp" id="ed-place" placeholder="Name (e.g. West Marine Ft Lauderdale)" value="${esc(loc.name)}"><input class="inp" id="ed-addr" placeholder="Address" value="${esc(loc.address)}"></div>
+      ${hasLoc?`<a class="maplink" href="${esc(mapsHref(loc))}" target="_blank" rel="noopener">Open in Apple Maps ↗</a>`:""}
+    </div>
+    <div class="fld"><span class="lbl">Phone numbers</span>
+      <div class="sub-list" id="ed-phones">${d.phones.map((p,i)=>`<div class="subrow">
+        <input class="inp" id="ed-pl-${i}" data-pi="${i}" data-f="label" placeholder="Who" value="${esc(p.label)}">
+        <input class="inp" id="ed-pn-${i}" data-pi="${i}" data-f="number" placeholder="Number" inputmode="tel" value="${esc(p.number)}">
+        <button class="mini copyx" type="button" data-act="copyph" data-pi="${i}">COPY</button>
+        ${p.number?`<a class="mini callx" href="${esc(telHref(p.number))}">CALL</a>`:`<span></span>`}
+        <button class="mini" type="button" data-act="rmph" data-pi="${i}" aria-label="Remove number">×</button></div>`).join("")}</div>
+      <div><button class="mini" type="button" data-act="addph">+ ADD NUMBER</button></div>
+    </div>
+    <div class="fld"><span class="lbl">Steps</span>
+      <div class="sub-list" id="ed-steps">${d.steps.map((s,i)=>`<div class="steprow">
+        <input type="checkbox" id="ed-sc-${i}" data-si="${i}" ${s.done?"checked":""} aria-label="Step done">
+        <input class="inp" id="ed-st-${i}" data-si="${i}" value="${esc(s.t)}" placeholder="Step">
+        <button class="mini" type="button" data-act="rmst" data-si="${i}" aria-label="Remove step">×</button></div>`).join("")}</div>
+      <div><button class="mini" type="button" data-act="addst">+ ADD STEP</button></div>
+    </div>
+    <div class="fld"><label for="ed-notes">Notes</label><textarea class="inp" id="ed-notes" rows="3" placeholder="Anything else: part numbers, who said what, links">${esc(d.notes)}</textarea></div>
+    ${d.source && d.source!=="manual"?`<p class="note">Source: ${esc(d.source)}</p>`:""}
+    <div class="foot">
+      ${isNew?"<span></span>":`<button class="btn danger" type="button" id="ed-del">DELETE</button>`}
+      <div class="row"><button class="btn alt" type="button" data-act="close">CANCEL</button><button class="btn amber" type="button" id="ed-save">SAVE</button></div>
+    </div></div></div>`;
+  wireEditor(isNew);
+}
+function pullDraft(){
+  const g=id=>{ const el=document.getElementById(id); return el?el.value:""; };
+  draft.title=g("ed-title").trim(); draft.type=g("ed-type")||draft.type; draft.due=g("ed-due")||null;
+  draft.location={name:g("ed-place").trim(), address:g("ed-addr").trim()};
+  draft.phones=draft.phones.map((p,i)=>({label:g("ed-pl-"+i).trim(), number:g("ed-pn-"+i).trim()}));
+  draft.steps=draft.steps.map((s,i)=>({t:g("ed-st-"+i).trim(), done:!!document.getElementById("ed-sc-"+i)?.checked}));
+  draft.notes=g("ed-notes");
+}
+function wireEditor(isNew){
+  const root=$("#scrim");
+  root.addEventListener("click", async e=>{
+    if(e.target===root) return closeSheet();
+    const a=e.target.closest("[data-act]"); const act=a?.dataset.act;
+    if(act==="close") return closeSheet();
+    if(e.target.closest("#ed-bay button")){ pullDraft(); draft.bay=e.target.closest("button").dataset.bay; return drawEditor(isNew); }
+    if(act==="addph"){ pullDraft(); draft.phones.push({label:"",number:""}); drawEditor(isNew); document.getElementById("ed-pl-"+(draft.phones.length-1))?.focus(); }
+    if(act==="rmph"){ pullDraft(); draft.phones.splice(+a.dataset.pi,1); drawEditor(isNew); }
+    if(act==="addst"){ pullDraft(); draft.steps.push({t:"",done:false}); drawEditor(isNew); document.getElementById("ed-st-"+(draft.steps.length-1))?.focus(); }
+    if(act==="rmst"){ pullDraft(); draft.steps.splice(+a.dataset.si,1); drawEditor(isNew); }
+    if(act==="copyph"){
+      const el=document.getElementById("ed-pn-"+a.dataset.pi); const v=el?.value||"";
+      if(!v) return;
+      try{ await navigator.clipboard.writeText(v); toast("Number copied"); }
+      catch(err){ el.focus(); el.select(); toast("Selected. Press copy."); }
+    }
+  });
+  root.querySelector("#ed-type").addEventListener("change", ()=>{ pullDraft(); drawEditor(isNew); });
+  root.querySelector("#ed-save").addEventListener("click", ()=>{
+    pullDraft();
+    if(!draft.title){ const f=$("#ed-title"); f.focus(); f.style.borderColor="var(--bad)"; return; }
+    draft.phones=draft.phones.filter(p=>p.label||p.number); draft.steps=draft.steps.filter(s=>s.t);
+    const prev=S.tasks.get(draft.id);
+    if(!prev || prev.bay!==draft.bay || draft.order==null) draft.order = draft.bay==="now"?topOrder(draft.bay):bottomOrder(draft.bay);
+    saveTask(draft); closeSheet(); toast(isNew?"Strip filed":"Saved");
+  });
+  const del=root.querySelector("#ed-del");
+  if(del) del.addEventListener("click", ()=>{
+    if(!del.classList.contains("armed")){ del.classList.add("armed"); del.textContent="TAP AGAIN TO DELETE"; setTimeout(()=>{ if(del.isConnected){ del.classList.remove("armed"); del.textContent="DELETE"; } }, 3500); return; }
+    const id=draft.id; closeSheet(); deleteTask(id); toast("Strip deleted");
+  });
+}
+
+/* ============ types sheet ============ */
+let tdraft=null;
+function openTypes(){ tdraft=clone(S.types); drawTypes(); document.addEventListener("keydown", escClose); }
+function drawTypes(){
+  const counts={}; for(const t of S.tasks.values()) counts[t.type]=(counts[t.type]||0)+1;
+  $("#sheet-root").innerHTML = `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ty-h">
+    <h4 id="ty-h"><span>STRIP TYPES</span><button class="x" type="button" data-act="close" aria-label="Close">×</button></h4>
+    <p class="note">Use the arrows to set the order types appear in. Tap a swatch to change its color.</p>
+    <div class="sub-list">${tdraft.map((t,i)=>`<div class="typerow">
+      <div class="mv"><button class="mini" type="button" data-act="up" data-i="${i}" ${i===0?"disabled":""} aria-label="Move ${esc(t.name)} up">▲</button><button class="mini" type="button" data-act="down" data-i="${i}" ${i===tdraft.length-1?"disabled":""} aria-label="Move ${esc(t.name)} down">▼</button></div>
+      <button class="swatch" type="button" data-act="color" data-i="${i}" style="--c:${esc(t.color)}" aria-label="Change color"></button>
+      <input class="inp" id="ty-n-${i}" value="${esc(t.name)}" aria-label="Name">
+      <button class="mini" type="button" data-act="rmtype" data-i="${i}" ${tdraft.length<2?"disabled":""}>${t._arm?`MOVE ${counts[t.id]||0} &amp; DELETE`:"DELETE"}</button></div>`).join("")}</div>
+    <div><button class="mini" type="button" data-act="addtype">+ ADD TYPE</button></div>
+    <p class="note">Deleting a type moves its strips to the first type in the list.</p>
+    <div class="foot"><span></span><div class="row"><button class="btn alt" type="button" data-act="close">CANCEL</button><button class="btn amber" type="button" id="ty-save">SAVE TYPES</button></div></div>
+  </div></div>`;
+  const root=$("#scrim");
+  const pull=()=>tdraft.forEach((t,i)=>{ t.name=document.getElementById("ty-n-"+i).value.trim()||t.name||"Type"; t.code=t.name.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,3)||"GEN"; });
+  root.addEventListener("click", e=>{
+    if(e.target===root) return closeSheet();
+    const a=e.target.closest("[data-act]"); if(!a) return; const i=+a.dataset.i;
+    if(a.dataset.act==="close") return closeSheet();
+    pull();
+    if(a.dataset.act==="up" && i>0){ [tdraft[i-1],tdraft[i]]=[tdraft[i],tdraft[i-1]]; drawTypes(); $(`[data-act=up][data-i="${i-1}"]`)?.focus(); }
+    if(a.dataset.act==="down" && i<tdraft.length-1){ [tdraft[i+1],tdraft[i]]=[tdraft[i],tdraft[i+1]]; drawTypes(); $(`[data-act=down][data-i="${i+1}"]`)?.focus(); }
+    if(a.dataset.act==="color"){ const c=tdraft[i].color; tdraft[i].color=PALETTE[(PALETTE.indexOf(c)+1)%PALETTE.length]; drawTypes(); }
+    if(a.dataset.act==="addtype"){ const used=new Set(tdraft.map(t=>t.color)); tdraft.push({id:uid().slice(0,8), code:"NEW", name:"New type", color:PALETTE.find(c=>!used.has(c))||PALETTE[0]}); drawTypes(); document.getElementById("ty-n-"+(tdraft.length-1))?.select(); }
+    if(a.dataset.act==="rmtype"){ if(!tdraft[i]._arm){ tdraft.forEach(t=>delete t._arm); tdraft[i]._arm=true; drawTypes(); } else { tdraft[i]._gone=true; tdraft.splice(i,1); drawTypes(); } }
+  });
+  root.querySelector("#ty-save").addEventListener("click", ()=>{
+    pull(); const types=tdraft.map(({_arm,_gone,...t})=>t); if(!types.length) return;
+    const keep=new Set(types.map(t=>t.id)); const fallback=types[0].id;
+    for(const t of [...S.tasks.values()]) if(!keep.has(t.type)) patchTask(t.id,{type:fallback});
+    S.types=types; renderAll(); closeSheet(); toast("Types saved");
+    write("meta/settings", ()=>S.db.doc("meta/settings").set({types}));
+  });
+}
+
+/* ============ thoughts ============ */
+$("#th-save").addEventListener("click", ()=>{
+  const text=$("#th-text").value.trim(); if(!text){ $("#th-text").focus(); return; }
+  const th={id:uid(), text, createdAt:new Date().toISOString(), filed:false};
+  S.thoughts.push(th); renderThoughts(); renderCounts();
+  $("#th-text").value=""; store.set("cl.draft",""); toast("Thought logged");
+  write("thoughts/"+th.id, ()=>hDoc(th.id).set({text:th.text, createdAt:th.createdAt, filed:false}));
+});
+$("#th-clear").addEventListener("click", ()=>{ $("#th-text").value=""; store.set("cl.draft",""); });
+let draftT; $("#th-text").addEventListener("input", e=>{ clearTimeout(draftT); draftT=setTimeout(()=>store.set("cl.draft", e.target.value), 400); });
+
+const ctls={};
+$("#th-log").addEventListener("change", e=>{
+  const el=e.target; const id=el.dataset.id, i=el.dataset.pi; const p=S.proposals[id]; if(!p||i==null) return;
+  if(el.type==="checkbox") p.items[i].keep=el.checked; else if(el.dataset.f) p.items[i][el.dataset.f]=el.value;
+});
+$("#th-log").addEventListener("input", e=>{ const el=e.target; const p=S.proposals[el.dataset.id]; if(p && el.dataset.f==="title" && el.dataset.pi!=null) p.items[el.dataset.pi].title=el.value; });
+$("#th-log").addEventListener("click", async e=>{
+  const a=e.target.closest("[data-act]"); if(!a) return; const id=a.dataset.id; const th=S.thoughts.find(x=>x.id===id); if(!th) return;
+  const act=a.dataset.act;
+  if(act==="delthought"){
+    if(!a.classList.contains("armed")){ a.classList.add("armed"); a.textContent="TAP AGAIN"; setTimeout(()=>{ if(a.isConnected){a.classList.remove("armed"); a.textContent="DELETE";} },3500); return; }
+    S.thoughts=S.thoughts.filter(x=>x.id!==id); delete S.proposals[id]; renderThoughts(); renderCounts(); write("thoughts/"+id, ()=>hDoc(id).delete()); toast("Thought deleted");
+  }
+  if(act==="tofile"){ th.filed=!th.filed; renderThoughts(); renderCounts(); write("thoughts/"+id, ()=>hDoc(id).update({filed:th.filed})); }
+  if(act==="stop"){ ctls[id]?.abort(); }
+  if(act==="dismiss"){ delete S.proposals[id]; renderThoughts(); }
+  if(act==="convert") convertThought(th);
+  if(act==="file"){
+    const p=S.proposals[id]; const picks=p.items.filter(x=>x.keep && String(x.title||"").trim());
+    for(const it of picks){
+      const bay=BAYS.includes(it.bay)?it.bay:"next";
+      saveTask({id:uid(), title:String(it.title).trim().slice(0,200), type:S.types.some(t=>t.id===it.type)?it.type:S.types[0].id, bay, order:bay==="now"?topOrder(bay):bottomOrder(bay),
+        due:/^\d{4}-\d{2}-\d{2}$/.test(it.due||"")?it.due:null, location:{name:it.place||"", address:it.address||""},
+        phones: it.phone?[{label:it.phoneLabel||"", number:String(it.phone)}]:[], steps:[], notes:it.notes||"", done:false, doneAt:null, source:"thought "+fmtStamp(th.createdAt), createdAt:new Date().toISOString()});
+    }
+    delete S.proposals[id]; th.filed=true; renderThoughts(); renderCounts(); write("thoughts/"+id, ()=>hDoc(id).update({filed:true}));
+    toast(picks.length?`${picks.length} strip${picks.length>1?"s":""} filed`:"Nothing selected");
+  }
+});
+async function convertThought(th){
+  if(!S.sample) return;
+  const ctl=new AbortController(); ctls[th.id]=ctl;
+  S.proposals[th.id]={state:"busy", msg:"Thinking… (the first time, Claude will ask you to allow this page)"}; renderThoughts();
+  const d=new Date();
+  const typesTxt=S.types.map(t=>`${t.id} = ${t.name}`).join("\n");
+  const prompt=`You turn a person's dictated note into to-do items for their task board. Dictation can be messy: fix obvious speech-to-text errors.
+Today is ${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]} ${todayISO()}.
+Allowed type ids (pick the best fit):
+${typesTxt}
+Priority bays: "now" = urgent, this week, or stated as important; "next" = normal; "later" = someday or no time pressure.
+Reply with ONLY a JSON array (no prose). Each element:
+{"title": short imperative task, max 80 chars, "type": one allowed id, "bay": "now"|"next"|"later", "due": "YYYY-MM-DD" or null (resolve words like "Friday" or "next week" to a date), "phone": phone number if one is stated else null, "phoneLabel": who the number belongs to or null, "place": business or place name if stated else null, "address": address if stated else null, "notes": extra detail worth keeping or null}
+Include only real actionable items. If there are none, reply [].
+Example: [{"title":"Call yard about haul-out date","type":"bot","bay":"now","due":"2026-10-23","phone":"954-555-0100","phoneLabel":"Yard office","place":"Lauderdale Marine Center","address":null,"notes":null}]
+
+The note:
+"""
+${th.text.slice(0,8000)}
+"""`;
+  try{
+    const out=await S.sample.json(prompt, {signal:ctl.signal, modelTier:"default"});
+    const arr=Array.isArray(out)?out:(Array.isArray(out?.items)?out.items:[]);
+    S.proposals[th.id]={state:"ready", items:arr.filter(x=>x&&x.title).slice(0,25).map(x=>({...x, keep:true, type:S.types.some(t=>t.id===x.type)?x.type:S.types[0].id, bay:BAYS.includes(x.bay)?x.bay:"next"}))};
+  }catch(e){
+    const c=e&&e.code;
+    if(c==="cancelled") delete S.proposals[th.id];
+    else if(c==="not_granted"||c==="sampling_disabled"||c==="capability_disabled"||c==="capability_removed"||c==="not_declared"){ S.sample=null; S.proposals[th.id]={state:"error", msg:"Claude isn't allowed on this page in this view. You can still add strips by hand."}; }
+    else if(c==="rate_limited") S.proposals[th.id]={state:"error", msg:"Usage limit reached for now. Try again later."};
+    else if(c==="invalid_json") S.proposals[th.id]={state:"error", msg:"The answer came back garbled. Press Turn into strips again."};
+    else S.proposals[th.id]={state:"error", msg:"Couldn't reach Claude. Try again in a moment."};
+  }
+  renderThoughts();
+}
+
+/* ============ landed ============ */
+$("#landed-log").addEventListener("click", e=>{
+  const a=e.target.closest("[data-act]"); if(!a) return; const id=a.dataset.id;
+  if(a.dataset.act==="restore"){ const t=S.tasks.get(id); patchTask(id,{done:false, doneAt:null, order:topOrder(t.bay||"next")}); toast(`Back in ${BAYNAME[t.bay||"next"]}`); }
+  if(a.dataset.act==="dellanded"){
+    if(!a.classList.contains("armed")){ a.classList.add("armed"); a.textContent="TAP AGAIN"; setTimeout(()=>{ if(a.isConnected){a.classList.remove("armed"); a.textContent="DELETE";} },3500); return; }
+    deleteTask(id); toast("Deleted");
+  }
+});
+$("#clear-landed").addEventListener("click", e=>{
+  const a=e.currentTarget; const cutoff=Date.now()-30*86400000;
+  const old=[...S.tasks.values()].filter(t=>t.done && t.doneAt && new Date(t.doneAt).getTime()<cutoff);
+  if(!old.length){ toast("Nothing older than 30 days"); return; }
+  if(!a.classList.contains("armed")){ a.classList.add("armed"); a.textContent=`TAP AGAIN TO DELETE ${old.length}`; setTimeout(()=>{ a.classList.remove("armed"); a.textContent="CLEAR OLDER THAN 30 DAYS"; },3500); return; }
+  a.classList.remove("armed"); a.textContent="CLEAR OLDER THAN 30 DAYS";
+  for(const t of old) deleteTask(t.id); toast(`Cleared ${old.length}`);
+});
+
+/* ============ boot ============ */
+function applySnapshot(){ S.ready=true; renderAll(); }
+async function boot(){
+  S.filter=store.get("cl.filter")||"all";
+  const dr=store.get("cl.draft"); if(dr) $("#th-text").value=dr;
+  setTab((location.hash||"").slice(1) || store.get("cl.tab") || "strips", false);
+  renderAll(); renderBrief(); setupSortable();
+  setInterval(()=>{ if(!S.dragging) { renderReadout(); } }, 30000);
+
+  let db;
+  try{ db = await window.LocalDB.open(); }
+  catch(e){ showSync("Can't open storage on this device (private browsing?). Changes won't be kept."); return; }
+  S.db=db;
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}   /* ask iOS not to evict our data */
+  const onErr = e => showSync("Local storage error. Reload the page.");
+  db.collection("tasks").onSnapshot(snap=>{
+    const m=new Map(); for(const d of snap.docs){ const v=d.data(); if(v) m.set(d.id, {...clone(v), id:d.id}); }
+    S.tasks=m; applySnapshot();
+  }, onErr);
+  db.collection("thoughts").onSnapshot(snap=>{
+    S.thoughts=snap.docs.map(d=>({...clone(d.data()||{}), id:d.id})); if(S.ready) { renderThoughts(); renderCounts(); }
+  }, onErr);
+  db.doc("meta/settings").onSnapshot(snap=>{
+    const v=snap.exists?snap.data():null; if(v && Array.isArray(v.types) && v.types.length){ S.types=clone(v.types); renderAll(); }
+  }, onErr);
+  db.doc("meta/brief").onSnapshot(snap=>{ S.brief=snap.exists?clone(snap.data()):null; renderBrief(); }, onErr);
+  window.Sync.onStatus(paintSync);
+  window.Sync.start(db._x);
+}
+/* ============ sync status + SYNC & DATA sheet (offline build) ============ */
+function paintSync(s){
+  const n=s.pending, w=n?` · ${n} CHANGE${n>1?"S":""} WAITING`:"";
+  let msg="";
+  if(s.state==="local") msg="LOCAL ONLY · SYNC NOT SET UP"+w;
+  else if(s.state==="signedout") msg="SIGN IN TO SYNC (TAP)"+w;
+  else if(s.state==="offline") msg="OFFLINE · SAVING ON THIS DEVICE"+w;
+  else if(s.state==="syncing") msg="SYNCING…"+w;
+  else if(s.state==="error") msg="SYNC PROBLEM: "+String(s.error||"").slice(0,80)+" (TAP)"+w;
+  else if(n) msg="SAVED ON THIS DEVICE"+w;
+  const el=$("#sync"); el.textContent=msg; el.hidden=!msg;
+}
+$("#sync").addEventListener("click", ()=>openData());
+$("#sync").style.cursor="pointer";
+
+function openData(){
+  const s=window.Sync.snapshot();
+  const acct = !window.Sync.enabled
+    ? `<p class="note">Sync isn't set up in this copy. Add your Supabase details to config.js to turn it on. The board still works fully on this device.</p>`
+    : s.email
+      ? `<p class="note">Signed in as ${esc(s.email)}.</p><div class="row"><button class="btn amber" type="button" id="dt-sync">SYNC NOW</button><button class="btn alt" type="button" id="dt-out">SIGN OUT</button><span class="status" id="dt-msg"></span></div>`
+      : `<div class="fld"><label for="dt-email">Email</label><input class="inp" id="dt-email" type="email" autocomplete="username" autocapitalize="none"></div>
+         <div class="fld"><label for="dt-pw">Password</label><input class="inp" id="dt-pw" type="password" autocomplete="current-password"></div>
+         <div class="row"><button class="btn amber" type="button" id="dt-in">SIGN IN</button><span class="status" id="dt-msg"></span></div>`;
+  $("#sheet-root").innerHTML=`<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="dt-h">
+    <h4 id="dt-h"><span>SYNC &amp; DATA</span><button class="x" type="button" data-act="close" aria-label="Close">×</button></h4>
+    <div class="fld"><span class="lbl">Sync</span>${acct}</div>
+    <div class="fld"><span class="lbl">Backup</span>
+      <div class="row"><button class="btn alt" type="button" id="dt-exp">EXPORT JSON</button><button class="btn alt" type="button" id="dt-imp">IMPORT JSON</button><input type="file" id="dt-file" accept="application/json,.json" hidden></div>
+      <p class="note">Import adds what's missing and never overwrites a strip you already have.</p><span class="status" id="dt-res" role="status"></span>
+    </div>
+    <div class="foot"><span></span><div class="row"><button class="btn alt" type="button" data-act="close">CLOSE</button></div></div>
+  </div></div>`;
+  document.addEventListener("keydown", escClose);
+  const root=$("#scrim"); const msg=t=>{ const m=$("#dt-msg"); if(m) m.textContent=t; };
+  root.addEventListener("click", e=>{ if(e.target===root || e.target.closest("[data-act=close]")) closeSheet(); });
+  const inBtn=$("#dt-in");
+  if(inBtn) inBtn.addEventListener("click", async ()=>{
+    const email=$("#dt-email").value.trim(), pw=$("#dt-pw").value; if(!email||!pw){ msg("Enter both."); return; }
+    inBtn.disabled=true; msg("Signing in…");
+    try{ await window.Sync.signIn(email,pw); closeSheet(); toast("Signed in. Syncing."); }
+    catch(e){ inBtn.disabled=false; msg(e && (e.name==="AbortError"||e instanceof TypeError) ? "No connection." : (e.status===400||e.status===401?"Wrong email or password.":"Couldn't sign in: "+(e.message||"error"))); }
+  });
+  const so=$("#dt-sync"); if(so) so.addEventListener("click", async ()=>{ msg("Syncing…"); await window.Sync.syncNow(); const t=window.Sync.snapshot(); msg(t.state==="synced"?"Up to date.":t.state==="offline"?"Offline.":"Not done: "+(t.error||t.state)); });
+  const out=$("#dt-out"); if(out) out.addEventListener("click", async ()=>{ await window.Sync.signOut(); closeSheet(); toast("Signed out. Data stays on this device."); });
+
+  $("#dt-exp").addEventListener("click", async ()=>{
+    const json=JSON.stringify(S.db._x.exportAll(),null,1), name=`Tonys List backup - ${todayISO()}.json`;
+    const file=new File([json], name, {type:"application/json"});
+    try{ if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); return; } }catch(e){ if(e && e.name==="AbortError") return; }
+    const a=document.createElement("a"); a.href=URL.createObjectURL(file); a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  });
+  $("#dt-imp").addEventListener("click", ()=>$("#dt-file").click());
+  $("#dt-file").addEventListener("change", async e=>{
+    const f=e.target.files[0]; if(!f) return; const res=$("#dt-res");
+    try{
+      const j=JSON.parse(await f.text());
+      if(!j || !Array.isArray(j.docs)) throw new Error("not a Tony's List backup");
+      const ok=/^(tasks|thoughts)\/[A-Za-z0-9_-]{1,64}$|^meta\/(settings|brief)$/;
+      let added=0, skipped=0, bad=0;
+      for(const d of j.docs){
+        if(!d || !ok.test(d.path||"") || typeof d.data!=="object" || !d.data){ bad++; continue; }
+        const exists=S.db.exists(d.path);
+        const newerBrief = d.path==="meta/brief" && exists && String(d.data.generatedAt||"")>String(S.brief?.generatedAt||"");
+        if(exists && !newerBrief){ skipped++; continue; }
+        await S.db.doc(d.path).set(d.data); added++;
+      }
+      res.textContent=`Added ${added}, already had ${skipped}${bad?`, ignored ${bad} unreadable`:""}.`;
+    }catch(err){ res.textContent="Couldn't read that file: "+err.message; }
+    e.target.value="";
+  });
+}
+
+function showSync(msg){ const s=$("#sync"); s.textContent=msg; s.hidden=false; }
+boot();
+})();
+if("serviceWorker" in navigator) addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+</script>
+
+</body></html>
